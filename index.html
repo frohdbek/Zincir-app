@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Zincir — Sabit Görevler</title>
+<meta name="theme-color" content="#14171F">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #14171F;
+    --surface: #1C202B;
+    --surface-raised: #232838;
+    --line: #2E3444;
+    --parchment: #F3ECDA;
+    --ember: #E8862E;
+    --ember-bright: #F0B429;
+    --sage: #6FA287;
+    --text: #ECE7DA;
+    --text-muted: #8B8F9C;
+    --text-faint: #565C6E;
+    --danger: #C1583F;
+  }
+  *{ box-sizing: border-box; }
+  html, body{
+    margin:0; padding:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Manrope', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body{
+    min-height: 100vh;
+    display:flex;
+    justify-content:center;
+    padding: env(safe-area-inset-top, 20px) 0 env(safe-area-inset-bottom, 20px);
+  }
+  .app{
+    width:100%;
+    max-width: 460px;
+    padding: 28px 22px 40px;
+    display:flex;
+    flex-direction:column;
+    min-height:100vh;
+  }
+
+  .date-line{
+    font-size: 13px;
+    color: var(--text-muted);
+    letter-spacing: 0.01em;
+    margin-bottom: 22px;
+  }
+
+  /* hero: best streak among habits */
+  .hero{
+    text-align:center;
+    padding: 4px 0 24px;
+  }
+  .flame{
+    width: 30px; height: 30px;
+    margin: 0 auto 6px;
+    display:block;
+  }
+  .streak-number{
+    font-family: 'Fraunces', serif;
+    font-optical-sizing: auto;
+    font-weight: 500;
+    font-size: 72px;
+    line-height: 1;
+    color: var(--parchment);
+    letter-spacing: -0.02em;
+  }
+  .streak-label{
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-top: 6px;
+  }
+  .streak-label em{
+    font-style: normal;
+    color: var(--ember-bright);
+  }
+
+  hr.ledger{
+    border:none;
+    border-top: 1px solid var(--line);
+    margin: 4px 0 22px;
+  }
+
+  .section-title{
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 0 14px;
+  }
+
+  .empty-state{
+    text-align:center;
+    padding: 30px 10px 10px;
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* per-habit card */
+  .habit{
+    border-bottom: 1px solid var(--line);
+    padding: 16px 0;
+  }
+  .habit:last-of-type{ border-bottom: none; }
+  .habit-top{
+    display:flex;
+    align-items:center;
+    gap: 13px;
+  }
+  .checkbox{
+    width: 26px; height: 26px;
+    flex-shrink:0;
+    border-radius: 8px;
+    border: 2px solid var(--text-faint);
+    background: transparent;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    transition: all 0.15s ease;
+    padding:0;
+  }
+  .checkbox.checked{
+    background: var(--sage);
+    border-color: var(--sage);
+  }
+  .checkbox svg{
+    width: 15px; height: 15px;
+    opacity: 0;
+    transition: opacity 0.1s ease;
+  }
+  .checkbox.checked svg{ opacity: 1; }
+
+  .habit-name{
+    flex:1;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .habit-streak{
+    display:flex;
+    align-items:center;
+    gap: 5px;
+    color: var(--ember-bright);
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 18px;
+    flex-shrink:0;
+  }
+  .habit-streak svg{ width: 14px; height: 14px; flex-shrink:0; }
+  .habit-streak.zero{ color: var(--text-faint); }
+
+  .habit-remove{
+    background:none;
+    border:none;
+    color: var(--text-faint);
+    font-size: 18px;
+    cursor:pointer;
+    padding: 2px 4px 2px 8px;
+    line-height:1;
+    flex-shrink:0;
+  }
+  .habit-remove:hover{ color: var(--danger); }
+
+  /* mini 7-day dot row per habit */
+  .mini-row{
+    display:flex;
+    gap: 6px;
+    margin-top: 12px;
+    padding-left: 39px;
+  }
+  .mini-dot{
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--surface-raised);
+    border: 1.5px solid var(--line);
+  }
+  .mini-dot.filled{
+    background: var(--ember);
+    border-color: var(--ember);
+  }
+  .mini-dot.today{
+    box-shadow: 0 0 0 2px rgba(232,134,46,0.2);
+  }
+
+  .add-row{
+    display:flex;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .add-input{
+    flex:1;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'Manrope', sans-serif;
+    font-size: 14px;
+    outline:none;
+  }
+  .add-input::placeholder{ color: var(--text-faint); }
+  .add-input:focus{ border-color: var(--ember); }
+  .add-btn{
+    background: var(--ember);
+    border:none;
+    color: var(--bg);
+    font-weight: 700;
+    font-size: 14px;
+    border-radius: 10px;
+    padding: 0 18px;
+    cursor:pointer;
+  }
+  .add-btn:active{ background: var(--ember-bright); }
+
+  .footer{
+    margin-top: auto;
+    padding-top: 34px;
+    display:flex;
+    justify-content:center;
+  }
+  .reset-link{
+    background:none;
+    border:none;
+    color: var(--text-faint);
+    font-size: 12px;
+    cursor:pointer;
+    text-decoration: underline;
+    text-decoration-color: var(--line);
+  }
+
+  .toast{
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(8px);
+    background: var(--surface-raised);
+    color: var(--text);
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-size: 13px;
+    border: 1px solid var(--line);
+    opacity: 0;
+    pointer-events:none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 10;
+  }
+  .toast.show{
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="date-line" id="dateLine"></div>
+
+  <div class="hero">
+    <svg class="flame" viewBox="0 0 24 24" fill="none">
+      <path d="M12 2C12 2 7 7.5 7 12.5C7 15.5 9 18 12 18C15 18 17 15.5 17 12.5C17 10.8 16.2 9.5 15.5 8.5C15.6 10 14.8 11 13.8 11C14.3 9 13.5 6.8 12 5.5C12.3 7 11.5 8.3 10.5 9.3C9.5 10.3 9 11.4 9 12.5C9 14.4 10.3 16 12 16C13.7 16 15 14.4 15 12.5" stroke="#E8862E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="streak-number" id="streakNumber">0</div>
+    <div class="streak-label" id="streakLabel">sabit görev eklemeyi bekliyor</div>
+  </div>
+
+  <hr class="ledger">
+
+  <div class="section-title">Sabit görevlerin</div>
+  <div id="taskListWrap">
+    <div class="empty-state" id="emptyState">
+      Henüz sabit bir görev yok.<br>Her gün yapmak istediğin bir şey ekle — her görevin kendi serisi olur.
+    </div>
+    <div id="taskList"></div>
+  </div>
+
+  <div class="add-row">
+    <input type="text" class="add-input" id="taskInput" placeholder="Sabit görev, örn. Spor yap" maxlength="60">
+    <button class="add-btn" id="addBtn">Ekle</button>
+  </div>
+
+  <div class="footer">
+    <button class="reset-link" id="resetBtn">tüm verileri sıfırla</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const DAY_MS = 24*60*60*1000;
+
+  function fmt(d){
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+  function todayStr(){ return fmt(new Date()); }
+
+  const monthNames = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+
+  let tasks = [];       // [{id, name}]  -- fixed/recurring daily habits
+  let completions = {}; // { 'YYYY-MM-DD': [taskId, ...] }
+
+  const el = {
+    dateLine: document.getElementById('dateLine'),
+    streakNumber: document.getElementById('streakNumber'),
+    streakLabel: document.getElementById('streakLabel'),
+    taskList: document.getElementById('taskList'),
+    emptyState: document.getElementById('emptyState'),
+    taskInput: document.getElementById('taskInput'),
+    addBtn: document.getElementById('addBtn'),
+    resetBtn: document.getElementById('resetBtn'),
+    toast: document.getElementById('toast'),
+  };
+
+  const flameSvg = '<svg viewBox="0 0 24 24" fill="none"><path d="M12 2C12 2 7 7.5 7 12.5C7 15.5 9 18 12 18C15 18 17 15.5 17 12.5C17 10.8 16.2 9.5 15.5 8.5C15.6 10 14.8 11 13.8 11C14.3 9 13.5 6.8 12 5.5C12.3 7 11.5 8.3 10.5 9.3C9.5 10.3 9 11.4 9 12.5C9 14.4 10.3 16 12 16C13.7 16 15 14.4 15 12.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  function showToast(msg){
+    el.toast.textContent = msg;
+    el.toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=> el.toast.classList.remove('show'), 1800);
+  }
+
+  async function loadData(){
+    try{
+      const t = localStorage.getItem('tasks');
+      tasks = t ? JSON.parse(t) : [];
+    }catch(e){ tasks = []; }
+    try{
+      const c = localStorage.getItem('completions');
+      completions = c ? JSON.parse(c) : {};
+    }catch(e){ completions = {}; }
+  }
+
+  async function saveTasks(){
+    try{ localStorage.setItem('tasks', JSON.stringify(tasks)); }
+    catch(e){ showToast('Kaydedilemedi, tekrar dene'); }
+  }
+  async function saveCompletions(){
+    try{ localStorage.setItem('completions', JSON.stringify(completions)); }
+    catch(e){ showToast('Kaydedilemedi, tekrar dene'); }
+  }
+
+  function isTaskDoneOn(taskId, dateStr){
+    const done = completions[dateStr] || [];
+    return done.includes(taskId);
+  }
+
+  // streak for a single habit: consecutive days ending today (today doesn't
+  // break the streak if not yet done, it just isn't counted until it is)
+  function computeTaskStreak(taskId){
+    let streak = 0;
+    let cursor = new Date();
+    if(isTaskDoneOn(taskId, fmt(cursor))) streak++;
+    cursor = new Date(cursor.getTime() - DAY_MS);
+    while(isTaskDoneOn(taskId, fmt(cursor))){
+      streak++;
+      cursor = new Date(cursor.getTime() - DAY_MS);
+    }
+    return streak;
+  }
+
+  function render(){
+    const now = new Date();
+    el.dateLine.textContent = `Bugün · ${now.getDate()} ${monthNames[now.getMonth()]}`;
+
+    // hero: longest active streak among all habits
+    let best = 0;
+    tasks.forEach(t => { best = Math.max(best, computeTaskStreak(t.id)); });
+    el.streakNumber.textContent = best;
+    if(tasks.length === 0){
+      el.streakLabel.innerHTML = 'sabit görev eklemeyi bekliyor';
+    } else if(best === 0){
+      el.streakLabel.innerHTML = 'bugün işaretle, <em>ilk seriyi başlat</em>';
+    } else {
+      el.streakLabel.innerHTML = `en uzun aktif seri — <em>devam et</em>`;
+    }
+
+    // habit list
+    el.taskList.innerHTML = '';
+    if(tasks.length === 0){
+      el.emptyState.style.display = 'block';
+    } else {
+      el.emptyState.style.display = 'none';
+      const todayDone = completions[todayStr()] || [];
+
+      tasks.forEach(t => {
+        const streak = computeTaskStreak(t.id);
+        const doneToday = todayDone.includes(t.id);
+
+        const habit = document.createElement('div');
+        habit.className = 'habit';
+
+        const top = document.createElement('div');
+        top.className = 'habit-top';
+
+        const cb = document.createElement('button');
+        cb.className = 'checkbox' + (doneToday ? ' checked' : '');
+        cb.innerHTML = '<svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#14171F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        cb.addEventListener('click', () => toggleTask(t.id));
+        top.appendChild(cb);
+
+        const name = document.createElement('div');
+        name.className = 'habit-name';
+        name.textContent = t.name;
+        top.appendChild(name);
+
+        const sc = document.createElement('div');
+        sc.className = 'habit-streak' + (streak === 0 ? ' zero' : '');
+        sc.innerHTML = flameSvg + '<span>' + streak + '</span>';
+        top.appendChild(sc);
+
+        const rm = document.createElement('button');
+        rm.className = 'habit-remove';
+        rm.textContent = '×';
+        rm.addEventListener('click', () => removeTask(t.id));
+        top.appendChild(rm);
+
+        habit.appendChild(top);
+
+        // mini 7-day row for this habit
+        const mini = document.createElement('div');
+        mini.className = 'mini-row';
+        for(let i = 6; i >= 0; i--){
+          const d = new Date(Date.now() - i*DAY_MS);
+          const ds = fmt(d);
+          const dot = document.createElement('div');
+          dot.className = 'mini-dot' + (isTaskDoneOn(t.id, ds) ? ' filled' : '') + (ds === todayStr() ? ' today' : '');
+          mini.appendChild(dot);
+        }
+        habit.appendChild(mini);
+
+        el.taskList.appendChild(habit);
+      });
+    }
+  }
+
+  async function toggleTask(id){
+    const ds = todayStr();
+    const done = completions[ds] || [];
+    const idx = done.indexOf(id);
+    if(idx >= 0) done.splice(idx, 1);
+    else done.push(id);
+    completions[ds] = done;
+    render();
+    await saveCompletions();
+  }
+
+  async function addTask(){
+    const name = el.taskInput.value.trim();
+    if(!name) return;
+    tasks.push({ id: 't' + Date.now() + Math.random().toString(36).slice(2,7), name });
+    el.taskInput.value = '';
+    render();
+    await saveTasks();
+  }
+
+  async function removeTask(id){
+    tasks = tasks.filter(t => t.id !== id);
+    render();
+    await saveTasks();
+  }
+
+  el.addBtn.addEventListener('click', addTask);
+  el.taskInput.addEventListener('keydown', e => { if(e.key === 'Enter') addTask(); });
+
+  el.resetBtn.addEventListener('click', async () => {
+    if(!confirm('Tüm sabit görevler ve seri geçmişi silinsin mi? Bu geri alınamaz.')) return;
+    tasks = [];
+    completions = {};
+    render();
+    await saveTasks();
+    await saveCompletions();
+    showToast('Sıfırlandı');
+  });
+
+  (async function init(){
+    await loadData();
+    render();
+  })();
+
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').catch(() => {});
+    });
+  }
+})();
+</script>
+</body>
+</html>

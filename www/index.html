@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Zincir — Sabit Görevler</title>
+<style>
+  :root{
+    --bg:#14171F;
+    --panel:#1C202B;
+    --border:#2A2F3D;
+    --text:#F3EFE6;
+    --muted:#8B93A6;
+    --accent:#E9862B;
+    --accent-2:#F5A34A;
+    --danger:#E05B5B;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  .wrap{max-width:520px;margin:0 auto;padding:20px 20px 40px;}
+  .date-line{color:var(--muted);font-size:15px;margin-bottom:18px;}
+  .hero{text-align:center;padding:18px 0 24px;border-bottom:1px solid var(--border);margin-bottom:22px;}
+  .flame{font-size:34px;line-height:1;margin-bottom:6px;}
+  .streak-num{font-family:Georgia,"Times New Roman",serif;font-size:64px;line-height:1;color:var(--text);margin:0;}
+  .streak-label{color:var(--muted);font-size:14px;margin-top:8px;}
+  .streak-label em{color:var(--accent-2);font-style:normal;}
+  h2.section{font-size:18px;margin:0 0 14px;}
+  .empty{color:var(--muted);text-align:center;padding:28px 10px;font-size:15px;line-height:1.6;}
+  .task{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px 14px 10px;margin-bottom:12px;}
+  .tl{display:flex;align-items:center;gap:12px;}
+  .checkbox{width:26px;height:26px;flex:none;border-radius:50%;border:2px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;}
+  .checkbox.checked{background:var(--accent);border-color:var(--accent);}
+  .checkbox svg{width:14px;height:14px;opacity:0;}
+  .checkbox.checked svg{opacity:1;}
+  .name{flex:1;font-size:16px;}
+  .stat{display:flex;align-items:center;gap:4px;color:var(--muted);font-size:13px;}
+  .remove{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0 4px;}
+  .mini{display:flex;gap:5px;margin-top:10px;padding-left:38px;}
+  .dot{width:14px;height:14px;border-radius:4px;background:var(--border);}
+  .dot.filled{background:var(--accent);}
+  .add-row{display:flex;gap:10px;margin-top:8px;}
+  #taskInput{flex:1;background:var(--panel);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:15px;padding:14px;}
+  #taskInput::placeholder{color:var(--muted);}
+  #addBtn{background:var(--accent);color:#1a1200;border:none;border-radius:10px;padding:0 22px;font-size:15px;font-weight:600;cursor:pointer;}
+  .footer{margin-top:36px;display:flex;flex-direction:column;gap:10px;align-items:flex-start;}
+  .link-row{display:flex;gap:18px;}
+  .reset-link{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:0;text-decoration:underline;}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);background:var(--panel);border:1px solid var(--border);color:var(--text);padding:10px 18px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:all .25s;}
+  #toast.show{opacity:1;transform:translate(-50%,0);}
+  #offline{display:none;background:#3A2A16;color:var(--accent-2);text-align:center;font-size:13px;padding:6px;}
+  #dbstatus{color:var(--muted);font-size:12px;margin-top:4px;}
+</style>
+</head>
+<body>
+  <div id="offline">Çevrimdışı — değişiklikler cihazda saklanır</div>
+  <div class="wrap">
+    <div class="date-line" id="dateLine">—</div>
+
+    <div class="hero">
+      <div class="flame">🔥</div>
+      <div class="streak-num" id="streakNum">0</div>
+      <div class="streak-label" id="streakLabel">sabit görev eklemeyi bekliyor</div>
+    </div>
+
+    <h2 class="section">Sabit görevlerin</h2>
+    <div id="emptyState" class="empty" style="display:none;">
+      Henüz sabit bir görev yok.<br>
+      Her gün yapmak istediğin bir şey ekle — her görevin kendi serisi olur.
+    </div>
+    <div id="taskList"></div>
+
+    <div class="add-row">
+      <input id="taskInput" type="text" placeholder="Sabit görev, örn. Spor yap" maxlength="60">
+      <button id="addBtn">Ekle</button>
+    </div>
+
+    <div class="footer">
+      <div class="link-row">
+        <button class="reset-link" id="exportBtn">yedek indir</button>
+      </div>
+      <button class="reset-link" id="resetBtn">tüm verileri sıfırla</button>
+      <div id="dbstatus">veritabanı başlatılıyor…</div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+  (function(){
+    "use strict";
+
+    const DAY_MS = 86400000;
+    const DB_NAME = "zincir";
+
+    function fmt(d){ return d.toISOString().slice(0,10); }
+    function todayDate(){ return new Date(); }
+
+    const el = {
+      dateLine: document.getElementById('dateLine'),
+      streakNum: document.getElementById('streakNum'),
+      streakLabel: document.getElementById('streakLabel'),
+      taskList: document.getElementById('taskList'),
+      emptyState: document.getElementById('emptyState'),
+      taskInput: document.getElementById('taskInput'),
+      addBtn: document.getElementById('addBtn'),
+      resetBtn: document.getElementById('resetBtn'),
+      exportBtn: document.getElementById('exportBtn'),
+      toast: document.getElementById('toast'),
+      offline: document.getElementById('offline'),
+      dbstatus: document.getElementById('dbstatus'),
+    };
+
+    function showToast(msg){
+      el.toast.textContent = msg;
+      el.toast.classList.add('show');
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(()=>el.toast.classList.remove('show'), 1800);
+    }
+
+    function showOffline(show){ el.offline.style.display = show ? 'block' : 'none'; }
+    window.addEventListener('online', ()=>showOffline(false));
+    window.addEventListener('offline', ()=>showOffline(true));
+
+    // ---------- Depolama katmanı ----------
+    // Native (Android/iOS) ortamda: @capacitor-community/sqlite ile gerçek
+    // SQLite dosyasına yazar (telefonun kendi uygulama alanında, tarayıcıdan
+    // bağımsız). Capacitor bulunamazsa (ör. sıradan tarayıcıda test ederken)
+    // localStorage'a düşer, böylece geliştirme sırasında da çalışabilirsin.
+    let db = null;
+    let usingSqlite = false;
+
+    async function initStorage(){
+      const sqlite = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorSQLite;
+      if(sqlite){
+        try{
+          await sqlite.createConnection({ database: DB_NAME, version: 1, encrypted: false, mode: 'no-encryption' });
+          await sqlite.open({ database: DB_NAME });
+          await sqlite.execute({ database: DB_NAME, statements: `
+            CREATE TABLE IF NOT EXISTS tasks (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS completions (
+              task_id TEXT NOT NULL,
+              date TEXT NOT NULL,
+              PRIMARY KEY (task_id, date)
+            );
+          `});
+          db = sqlite;
+          usingSqlite = true;
+          el.dbstatus.textContent = 'veritabanı: cihaz üzerinde (SQLite)';
+          return;
+        }catch(e){
+          console.error('SQLite başlatılamadı, localStorage kullanılacak', e);
+        }
+      }
+      el.dbstatus.textContent = 'veritabanı: tarayıcı deposu (test modu)';
+    }
+
+    async function dbAll(){
+      if(usingSqlite){
+        const t = await db.query({ database: DB_NAME, statement: 'SELECT id, name FROM tasks ORDER BY created_at ASC', values: [] });
+        const c = await db.query({ database: DB_NAME, statement: 'SELECT task_id, date FROM completions', values: [] });
+        const tasks = (t.values || []).map(r => ({ id: r.id, name: r.name }));
+        const completions = {};
+        (c.values || []).forEach(r => {
+          if(!completions[r.date]) completions[r.date] = [];
+          completions[r.date].push(r.task_id);
+        });
+        return { tasks, completions };
+      }else{
+        let tasks = [], completions = {};
+        try{ tasks = JSON.parse(localStorage.getItem('zincir:tasks') || '[]'); }catch(e){}
+        try{ completions = JSON.parse(localStorage.getItem('zincir:completions') || '{}'); }catch(e){}
+        return { tasks, completions };
+      }
+    }
+
+    async function dbAddTask(task){
+      if(usingSqlite){
+        await db.run({ database: DB_NAME, statement: 'INSERT INTO tasks (id, name, created_at) VALUES (?, ?, ?)', values: [task.id, task.name, new Date().toISOString()] });
+      }else{
+        state.tasks.push(task);
+        localStorage.setItem('zincir:tasks', JSON.stringify(state.tasks));
+      }
+    }
+
+    async function dbRemoveTask(id){
+      if(usingSqlite){
+        await db.run({ database: DB_NAME, statement: 'DELETE FROM tasks WHERE id = ?', values: [id] });
+        await db.run({ database: DB_NAME, statement: 'DELETE FROM completions WHERE task_id = ?', values: [id] });
+      }else{
+        state.tasks = state.tasks.filter(t => t.id !== id);
+        Object.keys(state.completions).forEach(date => {
+          state.completions[date] = state.completions[date].filter(tid => tid !== id);
+        });
+        localStorage.setItem('zincir:tasks', JSON.stringify(state.tasks));
+        localStorage.setItem('zincir:completions', JSON.stringify(state.completions));
+      }
+    }
+
+    async function dbToggleCompletion(taskId, date, isDone){
+      if(usingSqlite){
+        if(isDone){
+          await db.run({ database: DB_NAME, statement: 'DELETE FROM completions WHERE task_id = ? AND date = ?', values: [taskId, date] });
+        }else{
+          await db.run({ database: DB_NAME, statement: 'INSERT OR IGNORE INTO completions (task_id, date) VALUES (?, ?)', values: [taskId, date] });
+        }
+      }else{
+        const arr = state.completions[date] || [];
+        const idx = arr.indexOf(taskId);
+        if(idx >= 0) arr.splice(idx, 1); else arr.push(taskId);
+        state.completions[date] = arr;
+        localStorage.setItem('zincir:completions', JSON.stringify(state.completions));
+      }
+    }
+
+    async function dbResetAll(){
+      if(usingSqlite){
+        await db.execute({ database: DB_NAME, statements: 'DELETE FROM tasks; DELETE FROM completions;' });
+      }else{
+        localStorage.removeItem('zincir:tasks');
+        localStorage.removeItem('zincir:completions');
+      }
+    }
+
+    // ---------- Uygulama durumu ----------
+    let state = { tasks: [], completions: {} };
+
+    function isDone(id, date){ return (state.completions[date] || []).includes(id); }
+
+    function computeStreak(id){
+      let count = 0;
+      let cur = todayDate();
+      if(isDone(id, fmt(cur))) count++;
+      cur = new Date(cur - DAY_MS);
+      while(isDone(id, fmt(cur))){ count++; cur = new Date(cur - DAY_MS); }
+      return count;
+    }
+
+    function render(){
+      const d = todayDate();
+      const months = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+      el.dateLine.textContent = `Bugün · ${d.getDate()} ${months[d.getMonth()]}`;
+
+      const best = state.tasks.length ? Math.max(...state.tasks.map(t => computeStreak(t.id)), 0) : 0;
+      el.streakNum.textContent = best;
+      el.streakLabel.innerHTML = best
+        ? 'En uzun aktif seri — <em>devam et</em>'
+        : (state.tasks.length ? 'bugün işaretle, <em>ilk seriyi başlat</em>' : 'sabit görev eklemeyi bekliyor');
+
+      el.taskList.innerHTML = '';
+      if(state.tasks.length === 0){
+        el.emptyState.style.display = 'block';
+        return;
+      }
+      el.emptyState.style.display = 'none';
+
+      const todayStr = fmt(d);
+      state.tasks.forEach(t => {
+        const st = computeStreak(t.id);
+        const done = isDone(t.id, todayStr);
+
+        const task = document.createElement('div');
+        task.className = 'task';
+
+        const tl = document.createElement('div');
+        tl.className = 'tl';
+
+        const cb = document.createElement('button');
+        cb.className = 'checkbox' + (done ? ' checked' : '');
+        cb.innerHTML = '<svg viewBox="0 0 16 16"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#14171F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
+        cb.onclick = () => toggleTask(t.id);
+        tl.append(cb);
+
+        const name = document.createElement('div');
+        name.className = 'name';
+        name.textContent = t.name;
+        tl.append(name);
+
+        const stat = document.createElement('div');
+        stat.className = 'stat';
+        stat.textContent = '🔥 ' + st;
+        tl.append(stat);
+
+        const rm = document.createElement('button');
+        rm.className = 'remove';
+        rm.textContent = '×';
+        rm.onclick = () => removeTask(t.id);
+        tl.append(rm);
+
+        task.append(tl);
+
+        const mini = document.createElement('div');
+        mini.className = 'mini';
+        for(let i = 6; i >= 0; i--){
+          const dd = new Date(d - i * DAY_MS);
+          const dot = document.createElement('div');
+          dot.className = 'dot' + (isDone(t.id, fmt(dd)) ? ' filled' : '');
+          mini.append(dot);
+        }
+        task.append(mini);
+
+        el.taskList.append(task);
+      });
+    }
+
+    async function addTask(){
+      const name = el.taskInput.value.trim();
+      if(!name) return;
+      const task = { id: 't' + Date.now(), name };
+      el.taskInput.value = '';
+      try{
+        await dbAddTask(task);
+        const fresh = await dbAll();
+        state = fresh;
+        render();
+      }catch(e){
+        console.error(e);
+        showToast('Görev eklenemedi');
+      }
+    }
+
+    async function removeTask(id){
+      try{
+        await dbRemoveTask(id);
+        state = await dbAll();
+        render();
+      }catch(e){
+        console.error(e);
+        showToast('Silinemedi');
+      }
+    }
+
+    async function toggleTask(id){
+      const ds = fmt(todayDate());
+      const done = isDone(id, ds);
+      try{
+        await dbToggleCompletion(id, ds, done);
+        state = await dbAll();
+        render();
+      }catch(e){
+        console.error(e);
+        showToast('Kaydedilemedi');
+      }
+    }
+
+    el.addBtn.onclick = addTask;
+    el.taskInput.addEventListener('keydown', e => { if(e.key === 'Enter') addTask(); });
+
+    el.resetBtn.onclick = async () => {
+      if(!confirm('Tüm veriyi silmek istediğinize emin misiniz?')) return;
+      try{
+        await dbResetAll();
+        state = await dbAll();
+        render();
+        showToast('Sıfırlandı');
+      }catch(e){
+        console.error(e);
+        showToast('Sıfırlanamadı');
+      }
+    };
+
+    el.exportBtn.onclick = () => {
+      const payload = { app: 'zincir', version: 1, exportedAt: new Date().toISOString(), ...state };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `zincir-yedek-${fmt(todayDate())}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Yedek indirildi');
+    };
+
+    // ---------- Başlat ----------
+    document.addEventListener('deviceready', boot);
+    // Capacitor web view'de deviceready hemen gelmeyebilir; DOM hazır olunca
+    // da bir kez deneriz, initStorage zaten Capacitor var mı kontrol ediyor.
+    if(document.readyState === 'complete' || document.readyState === 'interactive'){
+      boot();
+    }else{
+      document.addEventListener('DOMContentLoaded', boot);
+    }
+
+    let booted = false;
+    async function boot(){
+      if(booted) return;
+      booted = true;
+      showOffline(!navigator.onLine);
+      await initStorage();
+      state = await dbAll();
+      render();
+    }
+  })();
+  </script>
+</body>
+</html>

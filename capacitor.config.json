@@ -1,0 +1,12 @@
+{
+  "appId": "com.frohdbek.zincir",
+  "appName": "Zincir",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "plugins": {
+    "CapacitorSQLite": {
+      "iosDatabaseLocation": "Library/CapacitorDatabase",
+      "androidIsEncryption": false
+    }
+  }
+}
